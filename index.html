@@ -3,9 +3,205 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Paper Trader – Simulation (EUR)</title>
-  <link rel="stylesheet" href="./assets/css/style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.0.1/dist/lightweight-charts.standalone.production.js"></script>
+  <title>Paper Trader – Offline‑First (EUR)</title>
+  <style>
+    /* ---------------------------------------------------------
+      Paper Trader – Offline-first (keine externen Abhängigkeiten)
+      - läuft per Doppelklick (file://)
+      - läuft auf GitHub Pages (statisch)
+      --------------------------------------------------------- */
+
+    :root{
+      --bg: #0b0f18;
+      --panel: rgba(17,24,39,.62);
+      --panel2: rgba(15,23,42,.62);
+      --border: rgba(255,255,255,.08);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.65);
+      --muted2: rgba(255,255,255,.45);
+      --buy: #22c55e;
+      --sell: #ef4444;
+      --shadow: 0 10px 35px rgba(0,0,0,.35);
+      --radius: 18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+    }
+
+    *{ box-sizing: border-box; }
+    html,body{ height: 100%; }
+    body{
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color: var(--text);
+      background: radial-gradient(1000px 500px at 20% 0%, rgba(96,165,250,.18), transparent),
+                  radial-gradient(800px 600px at 90% 10%, rgba(34,197,94,.12), transparent),
+                  var(--bg);
+    }
+
+    .topbar{
+      position: sticky; top: 0; z-index: 10;
+      display: flex; gap: 16px; justify-content: space-between; align-items: center;
+      padding: 14px 16px;
+      background: rgba(11,15,24,.72);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand{ display:flex; gap: 12px; align-items:center; }
+    .logo{
+      width: 40px; height: 40px; border-radius: 12px;
+      display:flex; align-items:center; justify-content:center;
+      font-weight: 900;
+      background: linear-gradient(135deg, rgba(96,165,250,.3), rgba(34,197,94,.25));
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    .titles .h1{ font-weight: 900; letter-spacing: .3px; }
+    .titles .h2{ font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .controls{ display:flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .field{ display:flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+    .field select, .field input{
+      width: 170px; max-width: 45vw;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(17,24,39,.75);
+      color: var(--text);
+      outline: none;
+    }
+    .btn{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 900;
+      cursor: pointer;
+      color: var(--text);
+      background: rgba(255,255,255,.09);
+    }
+    .btn:hover{ filter: brightness(1.08); }
+    .btn:active{ transform: translateY(1px); }
+    .btn.secondary{ background: rgba(255,255,255,.06); }
+    .btn.buy{ background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.35); }
+    .btn.sell{ background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.35); }
+
+    .layout{
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      gap: 16px;
+      align-items: start;
+    }
+    @media (max-width: 980px){ .layout{ grid-template-columns: 1fr; } }
+
+    .chartCard{
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .chartHeader{
+      display:flex; justify-content: space-between; gap: 10px;
+      padding: 14px 14px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .priceBlock, .statusBlock{ min-width: 220px; }
+    .label{ font-size: 12px; color: var(--muted2); margin-bottom: 2px; }
+    .value{ font-size: 22px; font-weight: 900; letter-spacing: .2px; }
+    .sub{ font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .chart{
+      height: calc(100vh - 160px);
+      min-height: 420px;
+      position: relative;
+    }
+    canvas{ display:block; width:100%; height:100%; }
+
+    .side{ display:flex; flex-direction: column; gap: 16px; }
+    .card{
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .cardTitle{ font-weight: 900; margin-bottom: 12px; letter-spacing: .2px; }
+    .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .metric{
+      padding: 10px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .metric .k{ font-size: 12px; color: var(--muted2); margin-bottom: 4px; }
+    .metric .v{ font-weight: 900; font-size: 14px; }
+
+    .row{ display:flex; gap: 10px; align-items: center; margin-top: 10px; }
+    .grow{ flex: 1; }
+
+    .quickRow{ display:flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .chip{
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding: 7px 10px;
+      font-weight: 900;
+      cursor:pointer;
+      font-size: 12px;
+    }
+
+    .hint{ margin-top: 10px; font-size: 12px; color: var(--muted); min-height: 18px; }
+    .mono{ font-family: var(--mono); }
+
+    .tableWrap{
+      overflow:auto;
+      max-height: 320px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    table{ width:100%; border-collapse: collapse; font-size: 12px; }
+    th, td{ padding: 10px; border-bottom: 1px solid rgba(255,255,255,.06); white-space: nowrap; }
+    th{
+      position: sticky; top: 0;
+      background: rgba(15,23,42,.92);
+      text-align: left;
+      color: var(--muted);
+      font-weight: 900;
+    }
+    td.right, th.right{ text-align: right; }
+
+    .toastHost{
+      position: fixed; right: 16px; bottom: 16px;
+      display:flex; flex-direction: column; gap: 10px; z-index: 100;
+    }
+    .toast{
+      width: min(420px, calc(100vw - 32px));
+      background: rgba(17,24,39,.92);
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: var(--shadow);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .toast .t{ font-weight: 900; margin-bottom: 4px; }
+    .toast .m{ font-size: 12px; color: var(--muted); }
+    .toast.ok{ border-color: rgba(34,197,94,.35); }
+    .toast.bad{ border-color: rgba(239,68,68,.35); }
+    .toast.warn{ border-color: rgba(245,158,11,.35); }
+
+    .toggleRow{
+      display:flex; justify-content: space-between; align-items: center; gap: 10px;
+      margin-top: 6px;
+      padding: 10px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .toggle{ display:flex; align-items:center; gap: 10px; cursor: pointer; user-select: none; font-weight: 900; }
+    .toggle input{ width:18px; height:18px; accent-color: rgba(96,165,250,.95); }
+    .tiny{ font-size: 11px; color: rgba(255,255,255,.55); }
+    .muted{ color: rgba(255,255,255,.55); }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -13,7 +209,7 @@
       <div class="logo">PT</div>
       <div class="titles">
         <div class="h1">Paper Trader</div>
-        <div class="h2">Paper Trading • Live + Fake Market • EUR</div>
+        <div class="h2">Offline‑First • Fake läuft immer • EUR</div>
       </div>
     </div>
 
@@ -25,7 +221,11 @@
 
       <label class="field">
         <span>Chart</span>
-        <select id="daysSelect"></select>
+        <select id="rangeSelect">
+          <option value="120">120 Candles</option>
+          <option value="200" selected>200 Candles</option>
+          <option value="320">320 Candles</option>
+        </select>
       </label>
 
       <label class="field">
@@ -37,9 +237,7 @@
         </select>
       </label>
 
-      <button id="resetBtn" class="btn secondary" title="Portfolio + Historie zurücksetzen">
-        Reset
-      </button>
+      <button id="resetBtn" class="btn secondary" title="Portfolio + Historie zurücksetzen">Reset</button>
     </div>
   </header>
 
@@ -59,7 +257,9 @@
         </div>
       </div>
 
-      <div id="chart" class="chart"></div>
+      <div class="chart" id="chartHost">
+        <canvas id="chart"></canvas>
+      </div>
     </section>
 
     <aside class="side">
@@ -108,10 +308,7 @@
         <div class="cardTitle">Einstellungen</div>
 
         <div class="toggleRow">
-          <label class="toggle">
-            <input id="advancedToggle" type="checkbox" />
-            <span>Advanced Mode</span>
-          </label>
+          <label class="toggle"><input id="advancedToggle" type="checkbox" /><span>Advanced Mode</span></label>
           <span class="tiny">Optional aktivieren</span>
         </div>
 
@@ -126,41 +323,31 @@
         </div>
 
         <div class="row">
-          <label class="toggle">
-            <input id="shortToggle" type="checkbox" />
-            <span>Shorting erlauben</span>
-          </label>
+          <label class="toggle"><input id="shortToggle" type="checkbox" /><span>Shorting erlauben</span></label>
           <span class="tiny mono" id="shortStatus">Aus</span>
         </div>
 
         <div class="row">
-          <label class="field grow">
-            <span>Max Leverage</span>
-            <input id="levInput" type="number" inputmode="decimal" min="1" max="5" step="0.1" placeholder="z.B. 2.0" />
-          </label>
+          <label class="field grow"><span>Max Leverage</span><input id="levInput" type="number" min="1" max="5" step="0.1" placeholder="z.B. 2.0" /></label>
         </div>
-
         <div class="row">
-          <label class="field grow">
-            <span>Fee (bps)</span>
-            <input id="feeInput" type="number" inputmode="decimal" min="0" step="1" placeholder="z.B. 5" />
-          </label>
+          <label class="field grow"><span>Fee (bps)</span><input id="feeInput" type="number" min="0" step="1" placeholder="z.B. 5" /></label>
         </div>
-
         <div class="row">
-          <label class="field grow">
-            <span>Slippage (bps)</span>
-            <input id="slipInput" type="number" inputmode="decimal" min="0" step="1" placeholder="z.B. 3" />
-          </label>
+          <label class="field grow"><span>Slippage (bps)</span><input id="slipInput" type="number" min="0" step="1" placeholder="z.B. 3" /></label>
         </div>
 
-        <div class="tiny muted">Default ist alles aus, damit es wie eine simple Paper-Trading-App bleibt.</div>
+        <div class="toggleRow">
+          <label class="toggle"><input id="liveToggle" type="checkbox" /><span>Live API aktivieren</span></label>
+          <span class="tiny">Optional</span>
+        </div>
+        <div class="tiny muted">Live nutzt CoinGecko (öffentlich, gratis). Bei manchen Browsern/Netzen kann das geblockt sein.</div>
       </section>
 
       <section class="card">
         <div class="cardTitle">Trade-Historie</div>
         <div class="tableWrap">
-          <table class="table" id="tradesTable">
+          <table id="tradesTable">
             <thead>
               <tr>
                 <th>Zeit</th><th>Asset</th><th>Side</th>
@@ -177,10 +364,969 @@
 
   <div id="toastHost" class="toastHost"></div>
 
-  <script src="./assets/js/utils.js"></script>
-  <script src="./assets/js/storage.js"></script>
-  <script src="./assets/js/api.js"></script>
-  <script src="./assets/js/fakeMarket.js"></script>
-  <script src="./assets/js/app.js"></script>
+  <script>
+    // ---------------------------------------------------------
+    // Paper Trader – Single-file App
+    // Ziel: IMMER laufen (auch per Doppelklick).
+    // Live-API ist optional. Default ist Fake.
+    // ---------------------------------------------------------
+
+    const CG_BASE = "https://api.coingecko.com/api/v3";
+    const STORE_KEY = "papertrader:offlinefirst:v1";
+
+    const CONFIG = {
+      currency: "EUR",
+      vsCurrency: "eur",
+      startCash: 10000,
+      fakeSeedPrice: 1000,
+      fakeCandleSeconds: 60,
+    };
+
+    const ASSETS = [
+      { symbol: "FAKE", name: "Fake Market", coinId: null, isLive: false },
+      { symbol: "BTC", name: "Bitcoin", coinId: "bitcoin", isLive: true },
+      { symbol: "ETH", name: "Ethereum", coinId: "ethereum", isLive: true },
+      { symbol: "SOL", name: "Solana", coinId: "solana", isLive: true },
+    ];
+
+    // ---------- Utils ----------
+    const U = {
+      clamp(n, a, b){ return Math.max(a, Math.min(b, n)); },
+      uid(prefix="id"){ return prefix + "_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16); },
+      fmtNumber(n, max=8){
+        if (!Number.isFinite(n)) return "–";
+        const abs = Math.abs(n);
+        const digits = abs >= 1 ? 2 : Math.min(max, 8);
+        return n.toLocaleString(undefined, { maximumFractionDigits: digits });
+      },
+      fmtCurrency(n){
+        if (!Number.isFinite(n)) return "–";
+        return n.toLocaleString(undefined, { style: "currency", currency: CONFIG.currency, maximumFractionDigits: 2 });
+      },
+      fmtPct(n){
+        if (!Number.isFinite(n)) return "–";
+        return (n*100).toFixed(2) + "%";
+      },
+      isoTime(tsMs){ return new Date(tsMs).toLocaleString(); },
+      randn(){
+        // Box-Muller
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+      }
+    };
+
+    // ---------- UI ----------
+    const el = {};
+    const $ = (id) => document.getElementById(id);
+
+    function toast({ title, message, kind="ok", ttlMs=2600 }){
+      const host = el.toastHost;
+      const n = document.createElement("div");
+      n.className = "toast " + kind;
+      n.innerHTML = `<div class="t">${title}</div><div class="m">${message}</div>`;
+      host.appendChild(n);
+      setTimeout(() => {
+        n.style.opacity = "0";
+        n.style.transform = "translateY(6px)";
+        setTimeout(() => n.remove(), 250);
+      }, ttlMs);
+    }
+
+    function setStatus(t, m=""){
+      el.statusText.textContent = t;
+      el.statusMeta.textContent = m;
+    }
+    function setPrice(p, meta=""){
+      el.priceText.textContent = Number.isFinite(p) ? U.fmtCurrency(p) : "–";
+      el.priceMeta.textContent = meta;
+    }
+
+    // ---------- Storage ----------
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      }catch(_){ return null; }
+    }
+    function saveState(){
+      try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(_){}
+    }
+    function clearState(){
+      try{ localStorage.removeItem(STORE_KEY); }catch(_){}
+    }
+
+    function defaultState(){
+      return {
+        settings: {
+          selectedSymbol: "FAKE",        // offline-first
+          fakeSpeed: "medium",
+          range: 200,
+          advanced: false,
+          orderMode: "qty",
+          allowShort: false,
+          maxLeverage: 2.0,
+          feeBps: 0,
+          slipBps: 0,
+          liveEnabled: false,
+        },
+        portfolio: {
+          startCash: CONFIG.startCash,
+          cash: CONFIG.startCash,
+          positions: {}, // symbol -> { qty, avgPrice, realizedPnl }
+        },
+        trades: [],
+      };
+    }
+
+    let state = loadState() || defaultState();
+    function migrate(){
+      state.settings ||= {};
+      state.portfolio ||= { startCash: CONFIG.startCash, cash: CONFIG.startCash, positions: {} };
+      state.portfolio.positions ||= {};
+      state.trades ||= [];
+
+      // Defaults
+      state.settings.selectedSymbol ||= "FAKE";
+      state.settings.fakeSpeed ||= "medium";
+      state.settings.range = Number(state.settings.range || 200);
+      state.settings.advanced = !!state.settings.advanced;
+      state.settings.orderMode ||= "qty";
+      state.settings.allowShort = !!state.settings.allowShort;
+      state.settings.maxLeverage = Number(state.settings.maxLeverage || 2.0);
+      state.settings.feeBps = Number(state.settings.feeBps || 0);
+      state.settings.slipBps = Number(state.settings.slipBps || 0);
+      state.settings.liveEnabled = !!state.settings.liveEnabled;
+    }
+    migrate();
+
+    function asset(sym){ return ASSETS.find(a => a.symbol === sym); }
+    function ensurePos(sym){
+      if (!state.portfolio.positions[sym]) state.portfolio.positions[sym] = { qty: 0, avgPrice: 0, realizedPnl: 0 };
+      return state.portfolio.positions[sym];
+    }
+
+    // ---------- Prices ----------
+    const priceCache = new Map(); // sym -> { price, tsMs }
+    function setCached(sym, price, tsMs=Date.now()){
+      if (Number.isFinite(price)) priceCache.set(sym, { price, tsMs });
+    }
+    function px(sym){
+      const p = priceCache.get(sym)?.price;
+      return Number.isFinite(p) ? p : null;
+    }
+
+    // ---------- Advanced knobs ----------
+    const advancedOn = () => !!state.settings.advanced;
+    const allowShort = () => advancedOn() && !!state.settings.allowShort;
+    const feeRate = () => advancedOn() ? (Number(state.settings.feeBps)||0)/10000 : 0;
+    const slipRate = () => advancedOn() ? (Number(state.settings.slipBps)||0)/10000 : 0;
+    const maxLev = () => {
+      const v = Number(state.settings.maxLeverage);
+      return advancedOn() && Number.isFinite(v) && v >= 1 ? v : 1;
+    };
+
+    function deepClone(x){ return JSON.parse(JSON.stringify(x)); }
+
+    function marginCheck(simCash, simPos){
+      let equity = simCash;
+      let exposure = 0;
+      for (const [s,p] of Object.entries(simPos)){
+        const pxx = px(s) || 0;
+        equity += p.qty * pxx;
+        exposure += Math.abs(p.qty) * pxx;
+      }
+      if (equity <= 0) throw new Error("Equity wäre <= 0 (Margin fail).");
+      if (exposure > equity * maxLev()) throw new Error("Exposure-Limit überschritten (Leverage).");
+    }
+
+    // ---------- Trading ----------
+    function parseQty(){
+      const sym = state.settings.selectedSymbol;
+      const p = px(sym);
+      const raw = Number(el.qtyInput.value);
+      if (!Number.isFinite(raw) || raw <= 0 || !p) return NaN;
+      return state.settings.orderMode === "amount" ? (raw / p) : raw;
+    }
+
+    function doBuy(qty){
+      const sym = state.settings.selectedSymbol;
+      const mkt = px(sym);
+      if (!mkt) throw new Error("Kein Preis verfügbar.");
+      if (qty <= 0) throw new Error("Qty muss > 0 sein.");
+
+      const exec = mkt * (1 + slipRate());
+      const notional = exec * qty;
+      const fee = notional * feeRate();
+      const cost = notional + fee;
+
+      if (!allowShort() && cost > state.portfolio.cash + 1e-9) throw new Error("Nicht genug Cash.");
+
+      if (allowShort()){
+        const simPos = deepClone(state.portfolio.positions);
+        const p = simPos[sym] || { qty: 0, avgPrice: 0, realizedPnl: 0 };
+        p.qty += qty; simPos[sym] = p;
+        marginCheck(state.portfolio.cash - cost, simPos);
+      }
+
+      const pos = ensurePos(sym);
+
+      if (pos.qty < 0){
+        // cover short
+        const cover = Math.min(qty, Math.abs(pos.qty));
+        pos.realizedPnl += (pos.avgPrice - exec) * cover;
+        pos.qty += cover;
+        const rem = qty - cover;
+        if (rem > 0){ pos.qty = rem; pos.avgPrice = exec; }
+        else if (Math.abs(pos.qty) < 1e-12){ pos.qty = 0; pos.avgPrice = 0; }
+      } else {
+        const newQty = pos.qty + qty;
+        pos.avgPrice = (pos.qty*pos.avgPrice + qty*exec) / newQty;
+        pos.qty = newQty;
+      }
+
+      state.portfolio.cash -= cost;
+      state.trades.unshift({ id: U.uid("t"), ts: Date.now(), symbol: sym, side: "BUY", qty, price: exec, notional, fee });
+      state.trades = state.trades.slice(0,200);
+    }
+
+    function doSell(qty){
+      const sym = state.settings.selectedSymbol;
+      const mkt = px(sym);
+      if (!mkt) throw new Error("Kein Preis verfügbar.");
+      if (qty <= 0) throw new Error("Qty muss > 0 sein.");
+
+      const exec = mkt * (1 - slipRate());
+      const notional = exec * qty;
+      const fee = notional * feeRate();
+      const proceeds = notional - fee;
+
+      const pos = ensurePos(sym);
+
+      if (!allowShort() && qty > pos.qty + 1e-12) throw new Error("Nicht genug Bestand (kein Short).");
+
+      if (allowShort()){
+        const simPos = deepClone(state.portfolio.positions);
+        const p = simPos[sym] || { qty: 0, avgPrice: 0, realizedPnl: 0 };
+        p.qty -= qty; simPos[sym] = p;
+        marginCheck(state.portfolio.cash + proceeds, simPos);
+      }
+
+      if (pos.qty > 0){
+        const sellLong = Math.min(qty, pos.qty);
+        pos.realizedPnl += (exec - pos.avgPrice) * sellLong;
+        pos.qty -= sellLong;
+
+        const rem = qty - sellLong;
+        if (rem > 0){
+          if (!allowShort()) throw new Error("Shorting ist aus.");
+          pos.qty = -rem;
+          pos.avgPrice = exec;
+        } else if (pos.qty <= 1e-12){ pos.qty = 0; pos.avgPrice = 0; }
+      } else if (pos.qty < 0){
+        const newAbs = Math.abs(pos.qty) + qty;
+        pos.avgPrice = (Math.abs(pos.qty)*pos.avgPrice + qty*exec) / newAbs;
+        pos.qty -= qty;
+      } else {
+        if (!allowShort()) throw new Error("Shorting ist aus.");
+        pos.qty = -qty;
+        pos.avgPrice = exec;
+      }
+
+      state.portfolio.cash += proceeds;
+      state.trades.unshift({ id: U.uid("t"), ts: Date.now(), symbol: sym, side: "SELL", qty, price: exec, notional, fee });
+      state.trades = state.trades.slice(0,200);
+    }
+
+    function computePortfolio(){
+      let equity = state.portfolio.cash;
+      let unreal = 0;
+      let real = 0;
+
+      for (const [s,p] of Object.entries(state.portfolio.positions)){
+        const pxx = px(s) || 0;
+        equity += p.qty * pxx;
+
+        if (p.qty > 0) unreal += (pxx - p.avgPrice) * p.qty;
+        else if (p.qty < 0) unreal += (p.avgPrice - pxx) * Math.abs(p.qty);
+
+        real += p.realizedPnl;
+      }
+      return { equity, pnl: equity - state.portfolio.startCash, unreal, real };
+    }
+
+    // ---------- Candles + Chart (Canvas, no libs) ----------
+    const candles = {
+      data: [],
+      current: null,
+      t: Math.floor(Date.now()/1000),
+    };
+
+    function newCandle(price){
+      const c = { time: candles.t, open: price, high: price, low: price, close: price };
+      candles.current = c;
+      candles.data.push(c);
+      // cap
+      const cap = 450;
+      if (candles.data.length > cap) candles.data = candles.data.slice(-cap);
+    }
+
+    function updateCandle(price){
+      if (!candles.current) newCandle(price);
+      candles.current.high = Math.max(candles.current.high, price);
+      candles.current.low  = Math.min(candles.current.low, price);
+      candles.current.close = price;
+    }
+
+    function resetCandles(){
+      candles.data = [];
+      candles.current = null;
+      candles.t = Math.floor(Date.now()/1000);
+    }
+
+    // Simple fake market state machine
+    const fake = {
+      timer: null,
+      seed: CONFIG.fakeSeedPrice,
+      price: CONFIG.fakeSeedPrice,
+      trend: 0,
+      vol: 0.012,
+      regime: "neutral",
+      ttl: 0,
+      candleSec: CONFIG.fakeCandleSeconds,
+      secInCandle: 0,
+    };
+
+    function maybeSwitchRegime(){
+      if (fake.ttl > 0){ fake.ttl--; return; }
+      const r = Math.random();
+      if (r < 0.25){ fake.regime = "trend_up"; fake.ttl = 40 + Math.floor(Math.random()*90); }
+      else if (r < 0.50){ fake.regime = "trend_down"; fake.ttl = 40 + Math.floor(Math.random()*90); }
+      else if (r < 0.70){ fake.regime = "high_vol"; fake.ttl = 30 + Math.floor(Math.random()*70); }
+      else { fake.regime = "neutral"; fake.ttl = 30 + Math.floor(Math.random()*80); }
+    }
+
+    function fakeStep(){
+      candles.t += 1;
+      maybeSwitchRegime();
+
+      fake.trend = U.clamp(fake.trend + 0.00035*U.randn(), -0.003, 0.003);
+      fake.vol   = U.clamp(fake.vol   + 0.00015*U.randn(), 0.004, 0.03);
+
+      let drift = fake.trend;
+      let vol = fake.vol;
+
+      if (fake.regime === "trend_up") drift += 0.0012;
+      if (fake.regime === "trend_down") drift -= 0.0012;
+      if (fake.regime === "high_vol") vol *= 1.8;
+
+      // mean reversion
+      const pull = (fake.seed - fake.price) / fake.seed;
+      drift += 0.00035 * pull;
+
+      const ret = drift + vol*U.randn();
+      fake.price = U.clamp(fake.price * Math.exp(ret), 0.01, Number.MAX_SAFE_INTEGER);
+
+      fake.secInCandle += 1;
+      if (!candles.current) newCandle(fake.price);
+      updateCandle(fake.price);
+
+      if (fake.secInCandle >= fake.candleSec){
+        fake.secInCandle = 0;
+        newCandle(fake.price);
+      }
+
+      setCached("FAKE", fake.price, Date.now());
+      return fake.price;
+    }
+
+    // Canvas chart renderer
+    const chart = {
+      canvas: null,
+      ctx: null,
+      dpr: 1,
+      w: 0,
+      h: 0,
+      hoverIdx: null,
+      lastMouseX: null,
+    };
+
+    function resizeChart(){
+      const host = el.chartHost;
+      const r = host.getBoundingClientRect();
+      chart.dpr = window.devicePixelRatio || 1;
+      chart.w = Math.floor(r.width);
+      chart.h = Math.floor(r.height);
+      chart.canvas.width = Math.floor(chart.w * chart.dpr);
+      chart.canvas.height = Math.floor(chart.h * chart.dpr);
+      chart.canvas.style.width = chart.w + "px";
+      chart.canvas.style.height = chart.h + "px";
+      chart.ctx.setTransform(chart.dpr, 0, 0, chart.dpr, 0, 0);
+      drawChart();
+    }
+
+    function drawChart(){
+      const ctx = chart.ctx;
+      if (!ctx) return;
+
+      const N = Math.max(20, Number(state.settings.range || 200));
+      const data = candles.data.slice(-N);
+
+      ctx.clearRect(0,0,chart.w,chart.h);
+
+      // Background subtle grid
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "rgba(255,255,255,.06)";
+      ctx.lineWidth = 1;
+      for (let i=1;i<=4;i++){
+        const y = Math.floor((chart.h/5)*i)+0.5;
+        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(chart.w,y); ctx.stroke();
+      }
+
+      if (data.length < 2){
+        ctx.fillStyle = "rgba(255,255,255,.55)";
+        ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+        ctx.fillText("Warte auf Candles…", 14, 24);
+        return;
+      }
+
+      // Price range
+      let lo = Infinity, hi = -Infinity;
+      for (const c of data){
+        lo = Math.min(lo, c.low);
+        hi = Math.max(hi, c.high);
+      }
+      if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo === hi) return;
+      const pad = (hi - lo) * 0.08;
+      lo -= pad; hi += pad;
+
+      // mapping
+      const xStep = chart.w / data.length;
+      const bodyW = Math.max(3, Math.min(12, xStep*0.7));
+
+      const yOf = (p) => chart.h - ((p - lo) / (hi - lo)) * chart.h;
+
+      // draw candles
+      for (let i=0;i<data.length;i++){
+        const c = data[i];
+        const x = i*xStep + xStep/2;
+
+        const isUp = c.close >= c.open;
+        ctx.strokeStyle = isUp ? "rgba(34,197,94,.95)" : "rgba(239,68,68,.95)";
+        ctx.fillStyle = isUp ? "rgba(34,197,94,.75)" : "rgba(239,68,68,.75)";
+        ctx.lineWidth = 1;
+
+        const yH = yOf(c.high), yL = yOf(c.low);
+        const yO = yOf(c.open), yC = yOf(c.close);
+
+        // wick
+        ctx.beginPath();
+        ctx.moveTo(x, yH);
+        ctx.lineTo(x, yL);
+        ctx.stroke();
+
+        // body
+        const yTop = Math.min(yO, yC);
+        const yBot = Math.max(yO, yC);
+        const h = Math.max(1, yBot - yTop);
+        ctx.fillRect(x - bodyW/2, yTop, bodyW, h);
+      }
+
+      // hover crosshair + OHLC
+      if (chart.hoverIdx !== null && chart.hoverIdx >= 0 && chart.hoverIdx < data.length){
+        const i = chart.hoverIdx;
+        const c = data[i];
+        const x = i*xStep + xStep/2;
+
+        ctx.strokeStyle = "rgba(96,165,250,.45)";
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,chart.h); ctx.stroke();
+
+        el.priceMeta.textContent = `O ${U.fmtCurrency(c.open)} • H ${U.fmtCurrency(c.high)} • L ${U.fmtCurrency(c.low)} • C ${U.fmtCurrency(c.close)}`;
+      }
+    }
+
+    // ---------- Live API (optional) ----------
+    async function getJson(url, timeoutMs=12000){
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
+      try{
+        const res = await fetch(url, { signal: ctrl.signal, headers: { "accept": "application/json" } });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return await res.json();
+      } finally { clearTimeout(t); }
+    }
+
+    async function fetchSimplePrices(){
+      const ids = ASSETS.filter(a => a.isLive).map(a => a.coinId).join(",");
+      const url = `${CG_BASE}/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=${CONFIG.vsCurrency}&include_last_updated_at=true`;
+      return getJson(url);
+    }
+
+    async function fetchOHLC(coinId, days=7){
+      // CoinGecko OHLC: returns [timestamp, open, high, low, close]
+      const url = `${CG_BASE}/coins/${encodeURIComponent(coinId)}/ohlc?vs_currency=${CONFIG.vsCurrency}&days=${days}`;
+      const raw = await getJson(url);
+      return raw.map(row => ({
+        time: Math.floor(row[0]/1000),
+        open: row[1], high: row[2], low: row[3], close: row[4],
+      }));
+    }
+
+    let livePriceTimer = null;
+
+    async function startLivePricePolling(){
+      if (livePriceTimer) return;
+      const poll = async () => {
+        try{
+          const json = await fetchSimplePrices();
+          for (const a of ASSETS.filter(x => x.isLive)){
+            const node = json[a.coinId];
+            const p = node?.[CONFIG.vsCurrency];
+            const t = node?.last_updated_at ? node.last_updated_at*1000 : Date.now();
+            if (Number.isFinite(p)) setCached(a.symbol, p, t);
+          }
+          if (asset(state.settings.selectedSymbol)?.isLive){
+            const node = priceCache.get(state.settings.selectedSymbol);
+            setPrice(node?.price ?? null, node?.tsMs ? ("Live update: " + U.isoTime(node.tsMs)) : "");
+          }
+          renderPortfolio();
+        } catch (e){
+          // Live ist optional: wir nerven nicht, sondern zeigen Status.
+          setStatus("App läuft", "Live API nicht erreichbar (optional).");
+        }
+      };
+      await poll();
+      livePriceTimer = setInterval(poll, 12000);
+    }
+
+    async function loadLiveCandlesForSelected(){
+      const a = asset(state.settings.selectedSymbol);
+      if (!a?.isLive) return;
+
+      setStatus("App läuft", "Lade Live‑Candles…");
+      try{
+        // days heuristic: based on range
+        const days = state.settings.range <= 140 ? 1 : (state.settings.range <= 220 ? 7 : 30);
+        const ohlc = await fetchOHLC(a.coinId, days);
+
+        // convert to internal candle series
+        resetCandles();
+        // map to our candle objects; keep last N
+        const trimmed = ohlc.slice(-450);
+        for (const c of trimmed){
+          candles.t = c.time;
+          candles.data.push({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close });
+        }
+        candles.current = candles.data[candles.data.length-1] || null;
+
+        const last = candles.current?.close;
+        if (Number.isFinite(last)) setCached(a.symbol, last, Date.now());
+
+        setStatus("App läuft", `Live: ${a.symbol} • Candles: ${trimmed.length}`);
+        setPrice(px(a.symbol), "Live Candles geladen");
+        drawChart();
+        renderPortfolio();
+      } catch (e){
+        setStatus("App läuft", "Live Candles nicht verfügbar (optional).");
+        toast({ title: "Live API", message: "Candles konnten nicht geladen werden.", kind: "warn", ttlMs: 3500 });
+      }
+    }
+
+    // ---------- Render ----------
+    function renderTrades(){
+      const tbody = el.tradesTable.querySelector("tbody");
+      tbody.innerHTML = "";
+      for (const t of state.trades.slice(0,60)){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${new Date(t.ts).toLocaleTimeString()}</td>
+          <td>${t.symbol}</td>
+          <td class="mono">${t.side}</td>
+          <td class="right mono">${U.fmtNumber(t.qty)}</td>
+          <td class="right mono">${U.fmtCurrency(t.price)}</td>
+          <td class="right mono">${U.fmtCurrency(t.notional)}</td>
+          <td class="right mono">${U.fmtCurrency(t.fee || 0)}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function updateHint(){
+      const sym = state.settings.selectedSymbol;
+      const p = px(sym);
+      const pos = ensurePos(sym);
+
+      if (!p){
+        el.orderHint.textContent = "Kein Preis verfügbar (Fake läuft; Live optional).";
+        el.buyBtn.disabled = true;
+        el.sellBtn.disabled = true;
+        return;
+      }
+
+      el.buyBtn.disabled = false;
+      el.sellBtn.disabled = (!allowShort() && pos.qty <= 0);
+
+      if (allowShort()){
+        let exposure = 0;
+        let eq = state.portfolio.cash;
+        for (const [s,pp] of Object.entries(state.portfolio.positions)){
+          const pxx = px(s) || 0;
+          eq += pp.qty * pxx;
+          exposure += Math.abs(pp.qty) * pxx;
+        }
+        el.orderHint.textContent = `Advanced • Equity: ${U.fmtCurrency(eq)} • Exposure: ${U.fmtCurrency(exposure)} • Max: x${maxLev().toFixed(1)}`;
+      } else {
+        if (state.settings.orderMode === "amount"){
+          el.orderHint.textContent = `Max Buy: ${U.fmtCurrency(state.portfolio.cash)} • Held: ${U.fmtNumber(pos.qty)}`;
+        } else {
+          el.orderHint.textContent = `Max Buy: ${U.fmtNumber(state.portfolio.cash / p)} • Held: ${U.fmtNumber(pos.qty)}`;
+        }
+      }
+    }
+
+    function renderPortfolio(){
+      const sym = state.settings.selectedSymbol;
+      const pos = ensurePos(sym);
+      const { equity, pnl, unreal, real } = computePortfolio();
+
+      el.cashText.textContent = U.fmtCurrency(state.portfolio.cash);
+      el.equityText.textContent = U.fmtCurrency(equity);
+      el.pnlText.textContent = `${U.fmtCurrency(pnl)} (${U.fmtPct(pnl / state.portfolio.startCash)})`;
+      el.upnlText.textContent = U.fmtCurrency(unreal);
+      el.rpnlText.textContent = U.fmtCurrency(real);
+      el.posText.textContent = pos.qty !== 0 ? `${U.fmtNumber(pos.qty)} @ ${U.fmtCurrency(pos.avgPrice)}` : "–";
+
+      updateHint();
+      renderTrades();
+      saveState();
+    }
+
+    function applySettingsUI(){
+      el.speedSelect.value = state.settings.fakeSpeed;
+      el.rangeSelect.value = String(state.settings.range);
+
+      el.advancedToggle.checked = !!state.settings.advanced;
+      el.orderModeSelect.value = state.settings.orderMode || "qty";
+      el.shortToggle.checked = !!state.settings.allowShort;
+      el.levInput.value = String(state.settings.maxLeverage ?? 2.0);
+      el.feeInput.value = String(state.settings.feeBps ?? 0);
+      el.slipInput.value = String(state.settings.slipBps ?? 0);
+      el.liveToggle.checked = !!state.settings.liveEnabled;
+
+      const adv = advancedOn();
+      el.shortToggle.disabled = !adv;
+      el.levInput.disabled = !adv;
+      el.feeInput.disabled = !adv;
+      el.slipInput.disabled = !adv;
+
+      el.shortStatus.textContent = allowShort() ? "An" : "Aus";
+
+      if (state.settings.orderMode === "amount"){
+        el.orderInputLabel.textContent = "Betrag (€)";
+        el.qtyInput.placeholder = "z.B. 200";
+        el.qtyInput.step = "1";
+      } else {
+        el.orderInputLabel.textContent = "Menge (Qty)";
+        el.qtyInput.placeholder = "z.B. 0.05";
+        el.qtyInput.step = "0.0001";
+      }
+    }
+
+    function populateAssets(){
+      el.assetSelect.innerHTML = ASSETS.map(a => `<option value="${a.symbol}">${a.symbol} • ${a.name}</option>`).join("");
+      el.assetSelect.value = state.settings.selectedSymbol;
+    }
+
+    function quick(kind){
+      const sym = state.settings.selectedSymbol;
+      const p = px(sym);
+      if (!p) return;
+
+      const pos = ensurePos(sym);
+      const mode = state.settings.orderMode;
+      const frac = kind.endsWith("25") ? 0.25 : (kind.endsWith("50") ? 0.5 : 1.0);
+
+      if (kind.startsWith("buy")){
+        if (mode === "amount") el.qtyInput.value = String(state.portfolio.cash * frac);
+        else el.qtyInput.value = String((state.portfolio.cash * frac) / p);
+      } else {
+        const abs = Math.abs(pos.qty);
+        if (mode === "amount") el.qtyInput.value = String((abs * p) * frac);
+        else el.qtyInput.value = String(abs * frac);
+      }
+      updateHint();
+    }
+
+    // ---------- Switching asset / mode ----------
+    function stopFake(){
+      if (fake.timer) clearInterval(fake.timer);
+      fake.timer = null;
+    }
+
+    function startFake(){
+      stopFake();
+      resetCandles();
+
+      // warmup
+      fake.price = CONFIG.fakeSeedPrice;
+      fake.trend = 0;
+      fake.vol = 0.012;
+      fake.regime = "neutral";
+      fake.ttl = 0;
+      fake.secInCandle = 0;
+
+      // prefill
+      newCandle(fake.price);
+      for (let i=0;i<220;i++) fakeStep();
+      setCached("FAKE", fake.price);
+
+      const tickMs = state.settings.fakeSpeed === "fast" ? 250 : (state.settings.fakeSpeed === "slow" ? 2000 : 1000);
+      fake.timer = setInterval(() => {
+        const p = fakeStep();
+        if (state.settings.selectedSymbol === "FAKE"){
+          setPrice(p, "Regime: " + fake.regime);
+          setStatus("App läuft", "Fake Market • Speed: " + state.settings.fakeSpeed);
+          drawChart();
+          renderPortfolio();
+        }
+      }, tickMs);
+
+      // initial render
+      setPrice(fake.price, "Fake Market");
+      drawChart();
+      renderPortfolio();
+    }
+
+    async function switchAsset(){
+      const sym = state.settings.selectedSymbol;
+      const a = asset(sym);
+
+      if (!a) return;
+
+      if (sym === "FAKE"){
+        // Fake always available
+        startFake();
+        setStatus("App läuft", "Fake Market • Speed: " + state.settings.fakeSpeed);
+        return;
+      }
+
+      // Live selected
+      stopFake();
+      resetCandles();
+      drawChart();
+
+      // Without live enabled: show message and still allow switching back
+      if (!state.settings.liveEnabled){
+        setStatus("App läuft", "Live API ist AUS (optional). Stell auf FAKE oder aktiviere Live in Einstellungen.");
+        setPrice(null, "");
+        renderPortfolio();
+        return;
+      }
+
+      // With live enabled: try to load candles + start price polling
+      await startLivePricePolling();
+      await loadLiveCandlesForSelected();
+    }
+
+    // ---------- Events ----------
+    function wireUI(){
+      el.assetSelect.addEventListener("change", async () => {
+        state.settings.selectedSymbol = el.assetSelect.value;
+        await switchAsset();
+      });
+
+      el.speedSelect.addEventListener("change", async () => {
+        state.settings.fakeSpeed = el.speedSelect.value;
+        applySettingsUI();
+        if (state.settings.selectedSymbol === "FAKE") startFake();
+        saveState();
+      });
+
+      el.rangeSelect.addEventListener("change", async () => {
+        state.settings.range = Number(el.rangeSelect.value);
+        saveState();
+        drawChart();
+        if (asset(state.settings.selectedSymbol)?.isLive && state.settings.liveEnabled){
+          await loadLiveCandlesForSelected();
+        }
+      });
+
+      el.qtyInput.addEventListener("input", updateHint);
+      document.querySelectorAll("[data-quick]").forEach(btn => btn.addEventListener("click", () => quick(btn.getAttribute("data-quick"))));
+
+      el.buyBtn.addEventListener("click", () => {
+        try{
+          const q = parseQty();
+          if (!Number.isFinite(q)) throw new Error("Ungültige Eingabe.");
+          doBuy(q);
+          toast({ title: "BUY", message: "Ausgeführt: " + U.fmtNumber(q) + " " + state.settings.selectedSymbol, kind: "ok" });
+          renderPortfolio();
+        }catch(err){ toast({ title: "BUY abgelehnt", message: String(err?.message || err), kind: "bad", ttlMs: 4000 }); }
+      });
+
+      el.sellBtn.addEventListener("click", () => {
+        try{
+          const q = parseQty();
+          if (!Number.isFinite(q)) throw new Error("Ungültige Eingabe.");
+          doSell(q);
+          toast({ title: "SELL", message: "Ausgeführt: " + U.fmtNumber(q) + " " + state.settings.selectedSymbol, kind: "ok" });
+          renderPortfolio();
+        }catch(err){ toast({ title: "SELL abgelehnt", message: String(err?.message || err), kind: "bad", ttlMs: 4000 }); }
+      });
+
+      el.advancedToggle.addEventListener("change", () => {
+        state.settings.advanced = el.advancedToggle.checked;
+        if (!advancedOn()){
+          state.settings.allowShort = false;
+          state.settings.feeBps = 0;
+          state.settings.slipBps = 0;
+          state.settings.maxLeverage = 1;
+        } else {
+          state.settings.maxLeverage = Number(state.settings.maxLeverage) || 2.0;
+        }
+        applySettingsUI();
+        renderPortfolio();
+      });
+
+      el.orderModeSelect.addEventListener("change", () => {
+        state.settings.orderMode = el.orderModeSelect.value;
+        applySettingsUI();
+        updateHint();
+        saveState();
+      });
+
+      el.shortToggle.addEventListener("change", () => {
+        state.settings.allowShort = el.shortToggle.checked;
+        applySettingsUI();
+        renderPortfolio();
+      });
+
+      el.levInput.addEventListener("change", () => { state.settings.maxLeverage = Number(el.levInput.value); renderPortfolio(); });
+      el.feeInput.addEventListener("change", () => { state.settings.feeBps = Number(el.feeInput.value); renderPortfolio(); });
+      el.slipInput.addEventListener("change", () => { state.settings.slipBps = Number(el.slipInput.value); renderPortfolio(); });
+
+      el.liveToggle.addEventListener("change", async () => {
+        state.settings.liveEnabled = el.liveToggle.checked;
+        saveState();
+        await switchAsset();
+      });
+
+      el.resetBtn.addEventListener("click", async () => {
+        if (!confirm("Wirklich Portfolio + Trades zurücksetzen? (localStorage wird gelöscht)")) return;
+        clearState();
+        state = defaultState();
+        migrate();
+        populateAssets();
+        applySettingsUI();
+        toast({ title: "Reset", message: "Zurückgesetzt.", kind: "warn" });
+        await switchAsset();
+      });
+
+      // hover detection
+      chart.canvas.addEventListener("mousemove", (e) => {
+        const rect = chart.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        chart.lastMouseX = x;
+
+        const N = Math.max(20, Number(state.settings.range || 200));
+        const data = candles.data.slice(-N);
+        if (data.length < 2) return;
+
+        const idx = Math.floor((x / rect.width) * data.length);
+        chart.hoverIdx = U.clamp(idx, 0, data.length-1);
+        drawChart();
+      });
+      chart.canvas.addEventListener("mouseleave", () => {
+        chart.hoverIdx = null;
+        el.priceMeta.textContent = asset(state.settings.selectedSymbol)?.isLive ? "Live" : "Fake Market";
+        drawChart();
+      });
+
+      window.addEventListener("resize", resizeChart);
+    }
+
+    // ---------- Bootstrap ----------
+    function grabEls(){
+      el.assetSelect = $("assetSelect");
+      el.rangeSelect = $("rangeSelect");
+      el.speedSelect = $("speedSelect");
+      el.resetBtn = $("resetBtn");
+
+      el.priceText = $("priceText");
+      el.priceMeta = $("priceMeta");
+      el.statusText = $("statusText");
+      el.statusMeta = $("statusMeta");
+
+      el.cashText = $("cashText");
+      el.equityText = $("equityText");
+      el.pnlText = $("pnlText");
+      el.upnlText = $("upnlText");
+      el.rpnlText = $("rpnlText");
+      el.posText = $("posText");
+
+      el.orderInputLabel = $("orderInputLabel");
+      el.qtyInput = $("qtyInput");
+      el.buyBtn = $("buyBtn");
+      el.sellBtn = $("sellBtn");
+      el.orderHint = $("orderHint");
+
+      el.tradesTable = $("tradesTable");
+      el.toastHost = $("toastHost");
+
+      el.advancedToggle = $("advancedToggle");
+      el.orderModeSelect = $("orderModeSelect");
+      el.shortToggle = $("shortToggle");
+      el.shortStatus = $("shortStatus");
+      el.levInput = $("levInput");
+      el.feeInput = $("feeInput");
+      el.slipInput = $("slipInput");
+      el.liveToggle = $("liveToggle");
+
+      el.chartHost = $("chartHost");
+      chart.canvas = $("chart");
+      chart.ctx = chart.canvas.getContext("2d");
+    }
+
+    function primeFakePrice(){
+      // Ensure FAKE has a price immediately, so portfolio/UI isn't empty.
+      setCached("FAKE", CONFIG.fakeSeedPrice, Date.now());
+      ensurePos("FAKE");
+    }
+
+    function bootstrap(){
+      grabEls();
+
+      // Hard guarantee: show that JS is running.
+      setStatus("App läuft", "Offline‑First • Fake startet…");
+      toast({ title: "App läuft", message: "JavaScript ist aktiv. Fake Market startet jetzt.", kind: "ok", ttlMs: 2400 });
+
+      populateAssets();
+      applySettingsUI();
+
+      primeFakePrice();
+
+      // Chart size
+      resizeChart();
+
+      // Start fake always in background
+      startFake();
+
+      wireUI();
+
+      // If user saved Live selection, try to switch.
+      switchAsset().catch(() => {});
+    }
+
+    window.addEventListener("error", (e) => {
+      setStatus("JS Fehler", e.message || String(e.error || e));
+      toast({ title: "JS Fehler", message: e.message || String(e.error || e), kind: "bad", ttlMs: 6500 });
+    });
+    window.addEventListener("unhandledrejection", (e) => {
+      setStatus("Promise Fehler", String(e.reason || e));
+      toast({ title: "Promise Fehler", message: String(e.reason || e), kind: "bad", ttlMs: 6500 });
+    });
+
+    document.addEventListener("DOMContentLoaded", bootstrap);
+  </script>
 </body>
 </html>

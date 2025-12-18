@@ -1,20 +1,11 @@
-# Paper Trader (EUR) – Fixed
+# Paper Trader – Offline‑First (EUR) v2
 
-Wenn bei dir vorher „alles tot“ war, war das fast sicher: **JS ist nicht gelaufen**.
+Was gefixt/neu:
+- Fake‑Market startet jetzt mit **genug Kerzen** (nicht mehr nur ~5), Chart wirkt direkt normal.
+- Fake‑Volatilität runtergedreht → weniger absurde Wicks.
+- Neues Feature: **Startkapital (€) setzen** (Apply → reset Portfolio/Trades). Default bleibt 10.000 €.
 
-Diese Version:
-- nutzt **keine ES-Modules** (kein `type="module"`)
-- zeigt **JS/Promise Fehler als Toast + Status**
-- Fake Market läuft immer
-- Live API läuft normal auf GitHub Pages; bei `file://` kann Live blockiert sein
+Upload:
+- Im bestehenden Repo reicht es, **nur `index.html` zu ersetzen**.
 
-## Repo-Check (wichtig)
-Im GitHub Repo **Root** muss liegen:
-- `index.html`
-- `assets/`
-
-Wenn du stattdessen `paper-trader-.../index.html` im Repo hast, hast du den Ordner falsch hochgeladen.
-
-## Lokales Testen
-- Doppelklick auf `index.html`: Fake läuft; Live kann blockiert sein.
-- VS Code „Live Server“: Live + Fake laufen.
+Build: 2025-12-18

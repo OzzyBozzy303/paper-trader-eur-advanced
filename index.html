@@ -306,6 +306,14 @@
 
       <section class="card">
         <div class="cardTitle">Einstellungen</div>
+        <div class="row">
+          <label class="field grow">
+            <span>Startkapital (€)</span>
+            <input id="startCashInput" type="number" min="1" step="1" placeholder="10000" />
+          </label>
+          <button id="applyStartCashBtn" class="btn secondary" title="Setzt Startkapital und resettet Portfolio">Apply</button>
+        </div>
+
 
         <div class="toggleRow">
           <label class="toggle"><input id="advancedToggle" type="checkbox" /><span>Advanced Mode</span></label>
@@ -691,11 +699,11 @@
       seed: CONFIG.fakeSeedPrice,
       price: CONFIG.fakeSeedPrice,
       trend: 0,
-      vol: 0.012,
+      vol: 0.006,               // lower base vol (realistischer)
       regime: "neutral",
       ttl: 0,
-      candleSec: CONFIG.fakeCandleSeconds,
-      secInCandle: 0,
+      stepsPerCandle: 12,       // wird je nach Speed gesetzt
+      stepInCandle: 0,
     };
 
     function maybeSwitchRegime(){
@@ -711,8 +719,8 @@
       candles.t += 1;
       maybeSwitchRegime();
 
-      fake.trend = U.clamp(fake.trend + 0.00035*U.randn(), -0.003, 0.003);
-      fake.vol   = U.clamp(fake.vol   + 0.00015*U.randn(), 0.004, 0.03);
+      fake.trend = U.clamp(fake.trend + 0.00025*U.randn(), -0.0022, 0.0022);
+      fake.vol   = U.clamp(fake.vol   + 0.00012*U.randn(), 0.0025, 0.02);
 
       let drift = fake.trend;
       let vol = fake.vol;
@@ -728,12 +736,12 @@
       const ret = drift + vol*U.randn();
       fake.price = U.clamp(fake.price * Math.exp(ret), 0.01, Number.MAX_SAFE_INTEGER);
 
-      fake.secInCandle += 1;
+      fake.stepInCandle += 1;
       if (!candles.current) newCandle(fake.price);
       updateCandle(fake.price);
 
-      if (fake.secInCandle >= fake.candleSec){
-        fake.secInCandle = 0;
+      if (fake.stepInCandle >= fake.stepsPerCandle){
+        fake.stepInCandle = 0;
         newCandle(fake.price);
       }
 
@@ -1012,6 +1020,7 @@
       el.feeInput.value = String(state.settings.feeBps ?? 0);
       el.slipInput.value = String(state.settings.slipBps ?? 0);
       el.liveToggle.checked = !!state.settings.liveEnabled;
+      el.startCashInput.value = String(Math.round(state.portfolio.startCash || 10000));
 
       const adv = advancedOn();
       el.shortToggle.disabled = !adv;
@@ -1067,20 +1076,30 @@
       stopFake();
       resetCandles();
 
-      // warmup
+      // --- Speed -> Tick + Candle density ---
+      const tickMs = state.settings.fakeSpeed === "fast" ? 250 : (state.settings.fakeSpeed === "slow" ? 2000 : 1000);
+      fake.stepsPerCandle = state.settings.fakeSpeed === "fast" ? 6 : (state.settings.fakeSpeed === "slow" ? 24 : 12);
+
+      // Reset market state
       fake.price = CONFIG.fakeSeedPrice;
       fake.trend = 0;
-      fake.vol = 0.012;
+      fake.vol = 0.006;
       fake.regime = "neutral";
       fake.ttl = 0;
-      fake.secInCandle = 0;
+      fake.stepInCandle = 0;
 
-      // prefill
+      // --- History prefill (damit Chart NICHT nur 5 Kerzen hat) ---
+      const target = Math.max(80, Number(state.settings.range || 200) + 30);
+
       newCandle(fake.price);
-      for (let i=0;i<220;i++) fakeStep();
+      let guard = 0;
+      while (candles.data.length < target && guard < 200000){
+        fakeStep();
+        guard++;
+      }
       setCached("FAKE", fake.price);
 
-      const tickMs = state.settings.fakeSpeed === "fast" ? 250 : (state.settings.fakeSpeed === "slow" ? 2000 : 1000);
+      // Start live ticking
       fake.timer = setInterval(() => {
         const p = fakeStep();
         if (state.settings.selectedSymbol === "FAKE"){
@@ -1089,6 +1108,14 @@
           drawChart();
           renderPortfolio();
         }
+      }, tickMs);
+
+      // initial render
+      setPrice(fake.price, "Fake Market");
+      setStatus("App läuft", "Fake Market • Speed: " + state.settings.fakeSpeed);
+      drawChart();
+      renderPortfolio();
+    }
       }, tickMs);
 
       // initial render
@@ -1205,6 +1232,26 @@
       el.feeInput.addEventListener("change", () => { state.settings.feeBps = Number(el.feeInput.value); renderPortfolio(); });
       el.slipInput.addEventListener("change", () => { state.settings.slipBps = Number(el.slipInput.value); renderPortfolio(); });
 
+
+      el.applyStartCashBtn.addEventListener("click", async () => {
+        const v = Number(el.startCashInput.value);
+        if (!Number.isFinite(v) || v < 1){
+          toast({ title: "Startkapital", message: "Bitte eine Zahl >= 1 eingeben.", kind: "bad", ttlMs: 3500 });
+          return;
+        }
+        if (!confirm("Startkapital setzen und Portfolio/Trades resetten?")) return;
+
+        state.portfolio.startCash = Math.round(v);
+        state.portfolio.cash = state.portfolio.startCash;
+        state.portfolio.positions = {};
+        state.trades = [];
+
+        toast({ title: "Startkapital gesetzt", message: "Neuer Start: " + U.fmtCurrency(state.portfolio.startCash), kind: "ok", ttlMs: 3000 });
+        applySettingsUI();
+        renderPortfolio();
+        await switchAsset();
+      });
+
       el.liveToggle.addEventListener("change", async () => {
         state.settings.liveEnabled = el.liveToggle.checked;
         saveState();
@@ -1281,6 +1328,8 @@
       el.feeInput = $("feeInput");
       el.slipInput = $("slipInput");
       el.liveToggle = $("liveToggle");
+      el.startCashInput = $("startCashInput");
+      el.applyStartCashBtn = $("applyStartCashBtn");
 
       el.chartHost = $("chartHost");
       chart.canvas = $("chart");
